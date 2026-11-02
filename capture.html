@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080b14">
+  <title>ถ่ายภาพห้อง · Room Scan</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="capture">
+
+  <!-- ===== กล้อง ===== -->
+  <div class="cam" id="cam" hidden>
+    <video id="video" playsinline muted autoplay></video>
+    <div class="reticle"></div>
+    <div class="flash" id="flash"></div>
+
+    <div class="hud-top">
+      <div class="step-card" id="stepCard"></div>
+      <div class="meters" aria-live="polite">
+        <div class="meter" id="mSharp"><b>–</b>คมชัด</div>
+        <div class="meter" id="mLight"><b>–</b>แสง</div>
+        <div class="meter" id="mTexture"><b>–</b>รายละเอียด</div>
+        <div class="meter" id="mOverlap"><b>–</b>ซ้อนทับ</div>
+      </div>
+    </div>
+
+    <div class="pitch-guide" id="pitchGuide" aria-hidden="true">
+      <div class="target" id="pitchTarget"></div>
+      <div class="dot" id="pitchDot"></div>
+    </div>
+
+    <div class="hud-bottom">
+      <div class="hint" id="hint" aria-live="assertive"></div>
+      <div class="shutter-row">
+        <div class="coverage" id="coverage" title="ความครอบคลุมรอบห้อง"></div>
+        <button class="shutter" id="shutter" aria-label="ถ่ายภาพ"></button>
+        <div class="shot-count"><b id="shotCount">0</b>ภาพ</div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn btn-sm grow" id="btnNextWall">ถึงมุมห้องแล้ว → ผนังถัดไป</button>
+        <button class="btn btn-sm" id="btnReview">ตรวจภาพ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== หน้าเริ่ม ===== -->
+  <section class="overlay-screen" id="scrIntro">
+    <div class="page">
+      <a href="index.html" class="muted">← กลับ</a>
+      <p class="eyebrow" style="margin-top:16px">ขั้นที่ 1 จาก 3 · ถ่ายภาพ</p>
+      <h1>ถ่ายภาพห้องแบบมีผู้ช่วยนำทาง</h1>
+
+      <label class="field" style="margin-bottom:16px"><span>ชื่อห้อง</span>
+        <input type="text" id="roomName" value="ห้องนอน" maxlength="60">
+      </label>
+
+      <div class="card">
+        <!-- แผนภาพเส้นทางเดิน: เดินชิดผนัง หันกล้องข้ามห้อง -->
+        <svg class="diagram" viewBox="0 0 320 240" role="img" aria-label="แผนภาพ: เดินเลียบผนังรอบห้อง หันกล้องเข้ากลางห้อง">
+          <rect x="20" y="20" width="280" height="200" fill="none" stroke="#9aa4c4" stroke-width="6"/>
+          <rect x="60" y="60" width="200" height="120" fill="none" stroke="#5b8cff" stroke-width="2" stroke-dasharray="6 6"/>
+          <g fill="#3ddc97">
+            <circle cx="60" cy="60" r="6"/><circle cx="127" cy="60" r="6"/><circle cx="193" cy="60" r="6"/><circle cx="260" cy="60" r="6"/>
+            <circle cx="260" cy="120" r="6"/><circle cx="260" cy="180" r="6"/><circle cx="193" cy="180" r="6"/><circle cx="127" cy="180" r="6"/>
+            <circle cx="60" cy="180" r="6"/><circle cx="60" cy="120" r="6"/>
+          </g>
+          <g stroke="#3ddc97" stroke-width="2">
+            <line x1="127" y1="60" x2="140" y2="95"/><line x1="127" y1="60" x2="110" y2="95"/>
+            <line x1="260" y1="120" x2="225" y2="108"/><line x1="260" y1="120" x2="225" y2="132"/>
+          </g>
+          <text x="160" y="125" fill="#9aa4c4" font-size="13" text-anchor="middle">หันกล้องเข้ากลางห้อง</text>
+          <text x="160" y="47" fill="#5b8cff" font-size="12" text-anchor="middle">เดินเลียบผนัง ก้าวละครึ่งก้าว →</text>
+        </svg>
+        <ol class="stack" style="padding-left:1.2em;margin:0">
+          <li><b>ยืนห่างผนังประมาณ 1 ก้าว</b> แล้วหันกล้องข้ามห้อง</li>
+          <li>ถ่าย <b>2 ภาพต่อจุด</b>: ก้มให้เห็นรอยต่อพื้นกับผนัง แล้วเงยให้เห็นรอยต่อเพดาน</li>
+          <li><b>ก้าวไปด้านข้างครึ่งก้าว</b> แล้วถ่ายจุดถัดไป — <u>อย่าหมุนตัวอยู่กับที่</u> ระบบคำนวณระยะไม่ได้</li>
+          <li>ถึงมุมห้องให้กด “ผนังถัดไป” จนครบ 4 ด้าน (ประมาณ 24–40 ภาพ)</li>
+        </ol>
+      </div>
+
+      <div class="notice danger" style="margin-bottom:16px">
+        <b>ความปลอดภัย:</b> ระหว่างเดินถ่ายให้มองทางเป็นระยะ ระวังสะดุดสายไฟ ขอบพรม เฟอร์นิเจอร์ และบันได
+        อย่าเดินถอยหลังขณะมองจอ และอย่าปีนเก้าอี้เพื่อถ่ายเพดาน
+      </div>
+
+      <div class="notice info" style="margin-bottom:16px">
+        <b>ความเป็นส่วนตัว:</b> ภาพเก็บในเครื่องนี้เท่านั้น ยังไม่ส่งไปที่ใด ก่อนถ่ายควรเก็บเอกสาร
+        รูปถ่ายบุคคล และหน้าจอที่มีข้อมูลส่วนตัว และหลีกเลี่ยงการถ่ายติดคนในบ้าน
+      </div>
+
+      <div class="notice" id="envWarn" hidden></div>
+
+      <button class="btn btn-primary btn-block" id="btnStart">เปิดกล้องและเริ่มถ่าย</button>
+      <p class="faint" style="font-size:13px;margin-top:8px">iPhone จะถามสิทธิ์ใช้กล้องและเซนเซอร์การเคลื่อนไหว — ใช้เพื่อวัดมุมกล้องและนับก้าวเท่านั้น</p>
+    </div>
+  </section>
+
+  <!-- ===== ตรวจภาพ ===== -->
+  <section class="overlay-screen" id="scrReview" hidden>
+    <div class="page">
+      <p class="eyebrow">ตรวจภาพที่ถ่าย</p>
+      <h1 id="reviewTitle">ภาพทั้งหมด</h1>
+      <div class="stat-grid" id="reviewStats" style="margin-bottom:16px"></div>
+      <div class="notice" id="reviewAdvice" hidden></div>
+      <div class="thumbs" id="thumbs" style="margin:16px 0"></div>
+      <div class="row">
+        <button class="btn grow" id="btnBackToCam">ถ่ายเพิ่ม</button>
+        <button class="btn btn-primary grow" id="btnToMeasure">ต่อไป: วัดระยะจริง</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== วัดระยะอ้างอิง ===== -->
+  <section class="overlay-screen" id="scrMeasure" hidden>
+    <div class="page">
+      <p class="eyebrow">ขั้นที่ 2 จาก 3 · ระยะอ้างอิง</p>
+      <h1>วัดระยะจริง 1–2 จุด</h1>
+      <p class="muted">ภาพถ่ายอย่างเดียวบอกขนาดจริงไม่ได้ ระบบต้องใช้ระยะที่คุณวัดเองเพื่อกำหนดสเกล
+        จุดที่ 2 ใช้ตรวจว่าแปลนเพี้ยนหรือไม่</p>
+      <div class="card stack">
+        <div class="grid-2">
+          <label class="field"><span>จุดที่ 1</span>
+            <select id="ref1Kind">
+              <option value="wall:0">ผนัง A (ผนังแรกที่ถ่าย)</option>
+              <option value="wall:1">ผนัง B</option>
+              <option value="height">ความสูงพื้น–ฝ้า</option>
+            </select>
+          </label>
+          <label class="field"><span>ระยะ (เมตร)</span>
+            <input type="number" id="ref1Val" inputmode="decimal" step="0.001" min="0.3" max="20" placeholder="เช่น 4.215">
+          </label>
+        </div>
+        <div class="grid-2">
+          <label class="field"><span>จุดที่ 2 (แนะนำ)</span>
+            <select id="ref2Kind">
+              <option value="">— ไม่วัด —</option>
+              <option value="wall:1" selected>ผนัง B (ตั้งฉากกับ A)</option>
+              <option value="wall:0">ผนัง A</option>
+              <option value="height">ความสูงพื้น–ฝ้า</option>
+            </select>
+          </label>
+          <label class="field"><span>ระยะ (เมตร)</span>
+            <input type="number" id="ref2Val" inputmode="decimal" step="0.001" min="0.3" max="20" placeholder="เช่น 3.350">
+          </label>
+        </div>
+        <label class="field"><span>ความสูงพื้น–ฝ้า (ถ้าวัดได้ ไม่บังคับ)</span>
+          <input type="number" id="heightVal" inputmode="decimal" step="0.01" min="1.8" max="6" placeholder="เช่น 2.60">
+        </label>
+        <label class="field"><span>เครื่องมือที่ใช้วัด</span>
+          <select id="tool">
+            <!-- ผู้ใช้หลักคือเจ้าของบ้าน ส่วนใหญ่มีแค่ตลับเมตร -->
+            <option value="tape">ตลับเมตร</option>
+            <option value="laser">เครื่องวัดระยะเลเซอร์</option>
+            <option value="other">อื่น ๆ / กะประมาณ</option>
+          </select>
+        </label>
+        <div class="notice info">
+          วัด <b>ชิดพื้นจากมุมถึงมุม</b> ไม่วัดทับบัวหรือเฟอร์นิเจอร์ เลเซอร์ให้วางชิดผนังด้านหนึ่งแล้วยิงไปผนังตรงข้ามให้ตั้งฉาก
+          ใช้เลเซอร์ใกล้เด็กหรือสัตว์เลี้ยงให้ระวังอย่าเล็งเข้าตา
+        </div>
+        <div class="notice" id="measureWarn" hidden></div>
+      </div>
+      <div class="row">
+        <button class="btn grow" id="btnBackToReview">← กลับ</button>
+        <button class="btn btn-primary grow" id="btnFinish">ต่อไป</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== สรุป ===== -->
+  <section class="overlay-screen" id="scrDone" hidden>
+    <div class="page">
+      <p class="eyebrow">ขั้นที่ 3 จาก 3 · ประมวลผล</p>
+      <h1>พร้อมสร้างแปลน</h1>
+      <div class="card stack" id="doneSummary"></div>
+      <div class="stack">
+        <button class="btn btn-primary btn-block" id="btnProcess" disabled>ส่งประมวลผลบนเซิร์ฟเวอร์ (ยังไม่เปิดในต้นแบบ)</button>
+        <p class="faint" style="font-size:13px">ระบบจริงจะแสดงหน้ายินยอมก่อนอัปโหลด: ใช้ภาพเพื่ออะไร เก็บนานเท่าไร ลบอย่างไร</p>
+        <button class="btn btn-block" id="btnManualPlan">สร้างแปลนจากระยะที่วัด (ไม่ใช้ภาพ)</button>
+        <a class="btn btn-block" href="editor.html?sample=poc">ดูตัวอย่างแปลนที่ได้จาก PoC</a>
+        <button class="btn btn-block" id="btnManifest">ดาวน์โหลด manifest (ข้อมูลภาพ ไม่มีตัวภาพ)</button>
+        <button class="btn btn-block btn-danger" id="btnWipe">ลบภาพทั้งหมดของห้องนี้</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script type="module" src="js/capture.js"></script>
+</body>
+</html>

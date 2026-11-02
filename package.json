@@ -1,0 +1,11 @@
+{
+  "name": "room-scan-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ต้นแบบ UX: guided capture + 2D plan editor + 3D viewer (vanilla JS ไม่มี build step)",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT"
+}

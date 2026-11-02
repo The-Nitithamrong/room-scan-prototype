@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10162a">
+  <title>แก้แปลนห้อง · Room Scan</title>
+  <link rel="stylesheet" href="css/app.css">
+  <!-- Three.js โหลดเฉพาะตอนเปิดมุมมอง 3D — แก้ 2D ได้แม้ CDN ถูกบล็อก -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body class="editor">
+  <header class="topbar">
+    <a href="index.html" class="btn btn-icon btn-sm" aria-label="กลับหน้าแรก">←</a>
+    <div class="title" id="title">แปลน</div>
+    <div class="seg" role="group" aria-label="มุมมอง">
+      <button id="btn2d" aria-pressed="true">2D</button>
+      <button id="btn3d" aria-pressed="false">3D</button>
+    </div>
+    <button class="btn btn-icon btn-sm" id="btnUndo" aria-label="ย้อนกลับ" title="ย้อนกลับ">↶</button>
+    <button class="btn btn-icon btn-sm" id="btnRedo" aria-label="ทำซ้ำ" title="ทำซ้ำ">↷</button>
+    <button class="btn btn-icon btn-sm" id="btnMenu" aria-label="เมนู" aria-haspopup="true">⋯</button>
+  </header>
+
+  <div class="menu" id="menu" hidden>
+    <button data-act="export-json">ส่งออกแปลน (.json)<small>เปิดกลับมาแก้ต่อได้</small></button>
+    <button data-act="export-svg">ส่งออกภาพแปลน (.svg)<small>พร้อมระยะกำกับ</small></button>
+    <button data-act="export-dxf">ส่งออก CAD (.dxf)<small>หน่วยมิลลิเมตร</small></button>
+    <button data-act="export-furniture">ส่งออกสำหรับวางเฟอร์นิเจอร์ (.json)</button>
+    <button data-act="export-glb">ส่งออกโมเดล 3D (.glb)</button>
+    <button data-act="import">นำเข้าแปลน (.json)</button>
+    <button data-act="save-new">บันทึกเป็นห้องใหม่</button>
+    <input type="file" id="fileInput" accept="application/json,.json" hidden>
+  </div>
+
+  <div class="workspace">
+    <div class="stage" id="stage">
+      <svg class="plan" id="svg" aria-label="แปลนห้อง"></svg>
+      <div class="view3d" id="view3d" hidden></div>
+      <div class="stage-hud" id="hud"></div>
+      <div class="zoom-ctl">
+        <button class="btn btn-icon btn-sm" id="btnFit" aria-label="พอดีจอ" title="พอดีจอ">⤢</button>
+      </div>
+    </div>
+    <aside class="panel" id="panel" aria-live="polite"></aside>
+  </div>
+
+  <dialog id="dlgScale">
+    <form method="dialog" class="stack">
+      <h3>ตั้งสเกลจากระยะที่วัดจริง</h3>
+      <p class="muted" style="font-size:14px">ย่อ/ขยายทั้งแปลนตามสัดส่วน — ใช้กับแปลนจากภาพที่ยังไม่มีสเกล
+        ต่างจาก “แก้ความยาวผนัง” ซึ่งเปลี่ยนรูปทรง</p>
+      <label class="field"><span>วัดที่</span><select id="scaleKind"></select></label>
+      <label class="field"><span>ระยะจริง (เมตร)</span>
+        <input type="number" id="scaleVal" inputmode="decimal" step="0.001" min="0.3" required>
+      </label>
+      <div class="row">
+        <button class="btn grow" value="cancel" formnovalidate>ยกเลิก</button>
+        <button class="btn btn-primary grow" value="ok">ใช้สเกลนี้</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script type="module" src="js/editor.js"></script>
+</body>
+</html>

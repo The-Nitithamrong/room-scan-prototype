@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080b14">
+  <title>Room Scan · ต้นแบบ</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <main class="page">
+    <p class="eyebrow">ต้นแบบ UX · ยังไม่ใช่ผลิตภัณฑ์</p>
+    <h1>สแกนห้องด้วยภาพถ่าย</h1>
+    <p class="muted">ถ่ายภาพหลายมุมด้วยมือถือทั่วไป (ไม่ต้องมี LiDAR) วัดระยะจริง 1–2 จุด แล้วได้แปลน 2D และโมเดล 3D ที่แก้ไขได้</p>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:12px">
+        <h2 style="margin:0;font-size:18px">ห้องของฉัน</h2>
+        <a class="btn btn-primary btn-sm" href="capture.html">+ สแกนห้องใหม่</a>
+      </div>
+      <ul class="room-list" id="rooms"></ul>
+      <p class="muted" id="empty" hidden>ยังไม่มีห้อง เริ่มจาก “สแกนห้องใหม่” หรือดูตัวอย่างด้านล่าง</p>
+    </div>
+
+    <div class="card stack">
+      <h2 style="font-size:18px">ลองดูตัวอย่าง</h2>
+      <a class="btn btn-block" href="editor.html?sample=poc">แปลนจาก PoC (ห้องสังเคราะห์ 4.20 × 3.35 ม.)</a>
+      <a class="btn btn-block" href="editor.html?sample=unscaled">แปลนจากภาพที่ยังไม่มีสเกล — ลองตั้งสเกลเอง</a>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:18px">ความพร้อมของอุปกรณ์</h2>
+      <ul class="checklist" id="checks"></ul>
+    </div>
+
+    <div class="notice">
+      ระยะจากภาพถ่ายเป็น <b>ค่าประมาณ</b> ยังไม่ได้ทดสอบกับห้องจริง — งาน built-in งานกระจก
+      และงานก่อสร้างต้องวัดหน้างานด้วยเครื่องมือจริงเสมอ
+    </div>
+    <p class="faint" style="font-size:13px;margin-top:16px">ภาพและแปลนในต้นแบบนี้เก็บในเบราว์เซอร์ของเครื่องนี้เท่านั้น ไม่มีการอัปโหลด
+      <span id="usage"></span></p>
+  </main>
+
+  <script type="module">
+    import * as store from './js/store.js';
+
+    const list = document.getElementById('rooms');
+    function renderRooms() {
+      const rooms = store.listRooms();
+      document.getElementById('empty').hidden = rooms.length > 0;
+      list.innerHTML = rooms.map((r) => {
+        const p = r.plan;
+        const size = p ? `${p.corners.length} มุม · ${p.scaled ? 'มีสเกลจริง' : 'ยังไม่มีสเกล'}` : 'ยังไม่มีแปลน';
+        return `<li><div class="grow"><b>${r.name.replace(/</g, '&lt;')}</b><br><small>${size} · ${new Date(r.updated).toLocaleString('th-TH')}</small></div>
+          <a class="btn btn-sm" href="capture.html?room=${r.id}">ถ่าย</a>
+          <a class="btn btn-sm" href="editor.html?room=${r.id}">แปลน</a>
+          <button class="btn btn-sm btn-danger" data-del="${r.id}" aria-label="ลบห้อง">ลบ</button></li>`;
+      }).join('');
+    }
+    list.addEventListener('click', async (e) => {
+      const id = e.target.getAttribute('data-del');
+      if (id && confirm('ลบห้องนี้พร้อมภาพทั้งหมดในเครื่อง?')) {
+        await store.deleteRoom(id);
+        renderRooms();
+      }
+    });
+    renderRooms();
+
+    // ตรวจความพร้อม — บอกผู้ใช้ก่อนว่าอะไรจะใช้ไม่ได้ แทนการล้มกลางทาง
+    const checks = [
+      ['HTTPS / secure context', window.isSecureContext, 'fail', 'กล้องใช้ได้เฉพาะบน https'],
+      ['กล้อง (getUserMedia)', !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia), 'fail', 'เบราว์เซอร์นี้เปิดกล้องไม่ได้'],
+      ['เซนเซอร์ทิศทาง', 'DeviceOrientationEvent' in window, 'warn', 'ไม่มีคำแนะนำมุมก้ม/เงย'],
+      ['เซนเซอร์การเคลื่อนไหว', 'DeviceMotionEvent' in window, 'warn', 'ไม่มีการเตือนเรื่องหมุนตัวอยู่กับที่'],
+      ['เก็บภาพในเครื่อง (IndexedDB)', 'indexedDB' in window, 'fail', 'บันทึกภาพไม่ได้'],
+      ['WebGL (มุมมอง 3D)', (() => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch (e) { return false; } })(), 'warn', 'ดูได้เฉพาะ 2D'],
+    ];
+    document.getElementById('checks').innerHTML = checks.map(([name, ok, lvl, why]) =>
+      `<li class="${ok ? 'ok' : lvl}"><span class="mark">${ok ? '✓' : lvl === 'fail' ? '✕' : '!'}</span><span class="grow">${name}${ok ? '' : `<br><small>${why}</small>`}</span></li>`
+    ).join('');
+
+    store.storageEstimate().then((est) => {
+      if (est && est.usage != null) document.getElementById('usage').textContent = `· ใช้พื้นที่ ${(est.usage / 1048576).toFixed(1)} MB`;
+    });
+  </script>
+</body>
+</html>
